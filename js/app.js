@@ -116,10 +116,7 @@
 
         // Sub-category header click to expand/collapse
         document.querySelectorAll('.warbond-subcategory__header').forEach(function (header) {
-            var newHeader = header.cloneNode(true);
-            header.parentNode.replaceChild(newHeader, header);
-
-            newHeader.addEventListener('click', function () {
+            header.addEventListener('click', function () {
                 var subcategory = this.closest('.warbond-subcategory');
                 subcategory.classList.toggle('expanded');
             });

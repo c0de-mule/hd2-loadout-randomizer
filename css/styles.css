@@ -102,26 +102,9 @@ button {
 /* === LOADOUT DISPLAY === */
 .loadout {
     display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--space-md);
     margin-bottom: var(--space-xl);
-}
-
-.loadout__row {
-    display: grid;
-    gap: var(--space-md);
-}
-
-.loadout__row--equipment {
-    grid-template-columns: repeat(4, 1fr);
-}
-
-.loadout__row--stratagems {
-    grid-template-columns: repeat(4, 1fr);
-}
-
-.loadout__row--booster {
-    grid-template-columns: 1fr;
-    max-width: 220px;
 }
 
 /* === SECTION LABELS === */
