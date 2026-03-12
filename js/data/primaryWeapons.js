@@ -53,7 +53,7 @@ window.HD2Data.primaryWeapons = [
     { id: "sg451-cookout", name: "SG-451 Cookout", category: "Shotgun", source: "freedoms-flame", image: "https://helldivers.wiki.gg/images/SG-451_Cookout_Primary_Render.png" },
     { id: "sg20-halt", name: "SG-20 Halt", category: "Shotgun", source: "truth-enforcers", image: "https://helldivers.wiki.gg/images/SG-20_Halt_Primary_Render.png" },
     { id: "m90a-shotgun", name: "M90A Shotgun", category: "Shotgun", source: "halo-odst", image: "https://helldivers.wiki.gg/images/M90A_Shotgun_Primary_Render.png" },
-    { id: "dbs2-double-freedom", name: "DBS-2 Double Freedom", category: "Shotgun", source: "superstore", image: "https://helldivers.wiki.gg/images/DBS-2_Double_Freedom_Primary_Render.png" },
+    { id: "dbs2-double-freedom", name: "DBS-2 Double Freedom", category: "Shotgun", source: "superstore", image: "https://helldivers.wiki.gg/images/DBS-2_Shotgun_Primary_Render.png" },
 
     // =====================================================================
     // ENERGY WEAPONS
