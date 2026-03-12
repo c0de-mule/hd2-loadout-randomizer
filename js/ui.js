@@ -160,29 +160,39 @@ window.HD2UI = (function () {
     }
 
     /**
-     * Get a pool of all items (name + image) for the casino cycling effect.
+     * Build a pool of {name, image} items from a data array.
      */
-    function getAllItemPool() {
+    function buildPool(arr) {
         var pool = [];
-        function addItems(arr) {
-            if (!arr) return;
-            arr.forEach(function (i) {
-                pool.push({ name: i.name, image: i.image || 'images/placeholder.png' });
-            });
-        }
-        addItems(HD2Data.primaryWeapons);
-        addItems(HD2Data.secondaryWeapons);
-        addItems(HD2Data.throwables);
-        addItems(HD2Data.stratagems);
-        addItems(HD2Data.boosters);
+        if (!arr) return pool;
+        arr.forEach(function (i) {
+            pool.push({ name: i.name || (i.weightClass + ' - ' + i.passiveName), image: i.image || 'images/placeholder.png' });
+        });
         return pool;
+    }
+
+    /**
+     * Get the appropriate item pool for a card based on its ID.
+     */
+    function getPoolForCard(cardId) {
+        if (cardId === 'card-primary') return buildPool(HD2Data.primaryWeapons);
+        if (cardId === 'card-secondary') return buildPool(HD2Data.secondaryWeapons);
+        if (cardId === 'card-throwable') return buildPool(HD2Data.throwables);
+        if (cardId === 'card-armor') return buildPool(HD2Data.armorCombos);
+        if (cardId === 'card-booster') return buildPool(HD2Data.boosters);
+        if (cardId && cardId.indexOf('card-strat') === 0) return buildPool(HD2Data.stratagems);
+        // Fallback: all items
+        return buildPool(HD2Data.primaryWeapons)
+            .concat(buildPool(HD2Data.secondaryWeapons))
+            .concat(buildPool(HD2Data.stratagems))
+            .concat(buildPool(HD2Data.boosters));
     }
 
     var activeSpinIntervals = [];
 
     /**
      * Casino slot-machine reveal. Cards flicker and cycle through
-     * random names and images, then lock in one by one.
+     * random names and images from their slot's category, then lock in one by one.
      */
     function casinoRevealCards() {
         // Clear any running intervals from a previous animation
@@ -190,7 +200,6 @@ window.HD2UI = (function () {
         activeSpinIntervals = [];
 
         var cards = document.querySelectorAll('.loadout-card');
-        var allItems = getAllItemPool();
         var finals = [];
 
         // Start all cards spinning immediately
@@ -202,9 +211,11 @@ window.HD2UI = (function () {
             finals.push({ name: nameEl.textContent, image: imgEl.src });
             card.classList.add('card--spinning');
 
+            var pool = getPoolForCard(card.id);
+
             // Cycle names and images rapidly
             var intervalId = setInterval(function () {
-                var randItem = allItems[Math.floor(Math.random() * allItems.length)];
+                var randItem = pool[Math.floor(Math.random() * pool.length)];
                 nameEl.textContent = randItem.name;
                 imgEl.src = randItem.image;
             }, 70);
@@ -216,6 +227,7 @@ window.HD2UI = (function () {
                 clearInterval(intervalId);
                 nameEl.textContent = finals[index].name;
                 imgEl.src = finals[index].image;
+                imgEl.style.filter = '';
                 card.classList.remove('card--spinning');
                 card.classList.add('card--locked');
 

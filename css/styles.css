@@ -381,12 +381,23 @@ button {
 }
 
 .loadout-card.card--spinning .loadout-card__image img {
-    filter: blur(3px) brightness(0.6);
+    filter: blur(2px) brightness(0.5);
     transition: none;
 }
 
 .loadout-card.card--spinning .loadout-card__name {
-    filter: blur(1.5px);
+    filter: blur(1px);
+    transition: none;
+}
+
+/* Restore image clarity immediately on lock-in */
+.loadout-card.card--locked .loadout-card__image img {
+    filter: brightness(0.95);
+    transition: none;
+}
+
+.loadout-card.card--locked .loadout-card__name {
+    filter: none;
     transition: none;
 }
 
