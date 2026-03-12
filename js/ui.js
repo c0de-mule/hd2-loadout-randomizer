@@ -172,7 +172,7 @@ window.HD2UI = (function () {
     }
 
     /**
-     * Get the full name pool for a card (for text cycling).
+     * Get the name pool for a card's slot.
      */
     function getNamePoolForCard(cardId) {
         if (cardId === 'card-primary') return buildPool(HD2Data.primaryWeapons);
@@ -185,32 +185,17 @@ window.HD2UI = (function () {
     }
 
     /**
-     * Pick N random items from an array and preload their images.
-     * Returns {items, preloaded} where preloaded holds Image objects to keep them cached.
+     * Whether a card should cycle images (only stratagems — they use small SVGs).
      */
-    function preloadSubset(pool, count) {
-        var shuffled = pool.slice();
-        for (var i = shuffled.length - 1; i > 0; i--) {
-            var j = Math.floor(Math.random() * (i + 1));
-            var tmp = shuffled[i];
-            shuffled[i] = shuffled[j];
-            shuffled[j] = tmp;
-        }
-        var subset = shuffled.slice(0, Math.min(count, shuffled.length));
-        var preloaded = [];
-        subset.forEach(function (item) {
-            var img = new Image();
-            img.src = item.image;
-            preloaded.push(img);
-        });
-        return { items: subset, preloaded: preloaded };
+    function shouldCycleImages(cardId) {
+        return cardId && cardId.indexOf('card-strat') === 0;
     }
 
     var activeSpinIntervals = [];
 
     /**
      * Casino slot-machine reveal. Cards flicker and cycle through
-     * random names and images from their slot's category, then lock in one by one.
+     * random names (and images for stratagems), then lock in one by one.
      */
     function casinoRevealCards() {
         // Clear any running intervals from a previous animation
@@ -219,74 +204,57 @@ window.HD2UI = (function () {
 
         var cards = document.querySelectorAll('.loadout-card');
         var finals = [];
-        var allPreloaded = [];
 
-        // Capture final values and preload final images
+        // Capture final values
         cards.forEach(function (card) {
             var nameEl = card.querySelector('.loadout-card__name');
             var imgEl = card.querySelector('.loadout-card__image img');
-            var finalData = { name: nameEl.textContent, image: imgEl.src };
-            finals.push(finalData);
-
-            var preload = new Image();
-            preload.src = finalData.image;
-            allPreloaded.push(preload);
+            finals.push({ name: nameEl.textContent, image: imgEl.src });
         });
 
-        // Build cycling pools: preload a small subset of images per card
-        var cyclingPools = [];
-        cards.forEach(function (card) {
-            var fullPool = getNamePoolForCard(card.id);
-            var subset = preloadSubset(fullPool, 8);
-            allPreloaded = allPreloaded.concat(subset.preloaded);
-            cyclingPools.push({ names: fullPool, images: subset.items });
-        });
+        // Start all cards spinning
+        cards.forEach(function (card, index) {
+            card.classList.remove('card--spinning', 'card--locked', 'card--rolling', 'card--revealed');
 
-        // Brief delay to let preloaded images start caching
-        setTimeout(function () {
-            // Start all cards spinning
-            cards.forEach(function (card, index) {
-                card.classList.remove('card--spinning', 'card--locked', 'card--rolling', 'card--revealed');
+            var nameEl = card.querySelector('.loadout-card__name');
+            var imgEl = card.querySelector('.loadout-card__image img');
+            var cycleImages = shouldCycleImages(card.id);
+            var pool = getNamePoolForCard(card.id);
 
-                var nameEl = card.querySelector('.loadout-card__name');
-                var imgEl = card.querySelector('.loadout-card__image img');
+            imgEl.onerror = null;
+            card.classList.add('card--spinning');
 
+            // Cycle names always; cycle images only for stratagems (SVGs)
+            var intervalId = setInterval(function () {
+                var rand = pool[Math.floor(Math.random() * pool.length)];
+                nameEl.textContent = rand.name;
+                if (cycleImages) {
+                    imgEl.src = rand.image;
+                }
+            }, 80);
+            activeSpinIntervals.push(intervalId);
+
+            // Lock in after staggered delay
+            var stopDelay = 400 + index * 150;
+
+            // Phase 1: Stop cycling, set final content (still blurred)
+            setTimeout(function () {
+                clearInterval(intervalId);
+                nameEl.textContent = finals[index].name;
                 imgEl.onerror = null;
-                card.classList.add('card--spinning');
+                imgEl.onload = null;
+                imgEl.src = finals[index].image;
+            }, stopDelay);
 
-                var namePool = cyclingPools[index].names;
-                var imagePool = cyclingPools[index].images;
-
-                // Cycle names from full pool, images from preloaded subset
-                var intervalId = setInterval(function () {
-                    nameEl.textContent = namePool[Math.floor(Math.random() * namePool.length)].name;
-                    var randImg = imagePool[Math.floor(Math.random() * imagePool.length)];
-                    imgEl.src = randImg.image;
-                }, 80);
-                activeSpinIntervals.push(intervalId);
-
-                // Lock in after staggered delay
-                var stopDelay = 400 + index * 150;
-
-                // Phase 1: Stop cycling, set final content (still blurred)
+            // Phase 2: Reveal
+            setTimeout(function () {
+                card.classList.remove('card--spinning');
+                card.classList.add('card--locked');
                 setTimeout(function () {
-                    clearInterval(intervalId);
-                    nameEl.textContent = finals[index].name;
-                    imgEl.onerror = null;
-                    imgEl.onload = null;
-                    imgEl.src = finals[index].image;
-                }, stopDelay);
-
-                // Phase 2: Reveal (fixed 120ms after content set)
-                setTimeout(function () {
-                    card.classList.remove('card--spinning');
-                    card.classList.add('card--locked');
-                    setTimeout(function () {
-                        card.classList.remove('card--locked');
-                    }, 400);
-                }, stopDelay + 120);
-            });
-        }, 50);
+                    card.classList.remove('card--locked');
+                }, 400);
+            }, stopDelay + 120);
+        });
     }
 
     /**
