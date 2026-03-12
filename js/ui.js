@@ -205,11 +205,14 @@ window.HD2UI = (function () {
         var cards = document.querySelectorAll('.loadout-card');
         var finals = [];
 
-        // Capture final values
+        // Capture final values and preload images into browser cache
         cards.forEach(function (card) {
             var nameEl = card.querySelector('.loadout-card__name');
             var imgEl = card.querySelector('.loadout-card__image img');
-            finals.push({ name: nameEl.textContent, image: imgEl.src });
+            var src = imgEl.src;
+            finals.push({ name: nameEl.textContent, image: src });
+            var preload = new Image();
+            preload.src = src;
         });
 
         // Start all cards spinning
@@ -238,22 +241,28 @@ window.HD2UI = (function () {
             var stopDelay = 400 + index * 150;
 
             // Phase 1: Stop cycling, set final content (still blurred)
+            // Phase 2: Reveal once image is decoded (or after timeout)
             setTimeout(function () {
                 clearInterval(intervalId);
                 nameEl.textContent = finals[index].name;
                 imgEl.onerror = null;
                 imgEl.onload = null;
                 imgEl.src = finals[index].image;
-            }, stopDelay);
 
-            // Phase 2: Reveal
-            setTimeout(function () {
-                card.classList.remove('card--spinning');
-                card.classList.add('card--locked');
-                setTimeout(function () {
-                    card.classList.remove('card--locked');
-                }, 400);
-            }, stopDelay + 120);
+                function reveal() {
+                    card.classList.remove('card--spinning');
+                    card.classList.add('card--locked');
+                    setTimeout(function () {
+                        card.classList.remove('card--locked');
+                    }, 400);
+                }
+
+                if (imgEl.decode) {
+                    imgEl.decode().then(reveal, reveal);
+                } else {
+                    setTimeout(reveal, 120);
+                }
+            }, stopDelay);
         });
     }
 
@@ -274,6 +283,10 @@ window.HD2UI = (function () {
         var finalName = nameEl.textContent;
         var finalImage = imgEl.src;
 
+        // Preload final image into cache
+        var preload = new Image();
+        preload.src = finalImage;
+
         var cycleImages = shouldCycleImages(cardId);
         var pool = getNamePoolForCard(cardId);
 
@@ -290,22 +303,28 @@ window.HD2UI = (function () {
         }, 80);
 
         // Phase 1: Stop cycling, set final content (still blurred)
+        // Phase 2: Reveal once image is decoded
         setTimeout(function () {
             clearInterval(intervalId);
             nameEl.textContent = finalName;
             imgEl.onerror = null;
             imgEl.onload = null;
             imgEl.src = finalImage;
-        }, 500);
 
-        // Phase 2: Reveal
-        setTimeout(function () {
-            card.classList.remove('card--spinning');
-            card.classList.add('card--locked');
-            setTimeout(function () {
-                card.classList.remove('card--locked');
-            }, 400);
-        }, 620);
+            function reveal() {
+                card.classList.remove('card--spinning');
+                card.classList.add('card--locked');
+                setTimeout(function () {
+                    card.classList.remove('card--locked');
+                }, 400);
+            }
+
+            if (imgEl.decode) {
+                imgEl.decode().then(reveal, reveal);
+            } else {
+                setTimeout(reveal, 120);
+            }
+        }, 500);
     }
 
     /**
