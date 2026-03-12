@@ -1,5 +1,5 @@
 /**
- * Core randomization logic for both Balanced and Chaos modes.
+ * Core randomization logic for Balanced, Mission Ready, and Chaos modes.
  */
 window.HD2Randomizer = (function () {
 
@@ -122,6 +122,110 @@ window.HD2Randomizer = (function () {
     }
 
     /**
+     * Pick from candidates using weighted random selection.
+     * Items tagged as crowd-clear or utility in the config get bonus weight.
+     * Orbitals get a bonus to compensate for their small pool size.
+     */
+    function weightedPick(candidates, config) {
+        var weights = [];
+        var totalWeight = 0;
+
+        for (var i = 0; i < candidates.length; i++) {
+            var w = 1; // base weight
+            if (config.crowdClear[candidates[i].id]) w += (config.crowdClearWeight - 1);
+            if (config.utility[candidates[i].id]) w += (config.utilityWeight - 1);
+            if (candidates[i].category === 'orbital' || candidates[i].category === 'eagle') w += (config.redStratagemWeight - 1);
+            if (candidates[i].category === 'sentry' || candidates[i].category === 'emplacement') w += (config.greenStratagemWeight - 1);
+            weights.push(w);
+            totalWeight += w;
+        }
+
+        var r = Math.random() * totalWeight;
+        var cumulative = 0;
+        for (var i = 0; i < candidates.length; i++) {
+            cumulative += weights[i];
+            if (r < cumulative) return candidates[i];
+        }
+        return candidates[candidates.length - 1];
+    }
+
+    /**
+     * Randomize stratagems in Mission Ready mode.
+     * Uses balanced constraints + AT score threshold + CC score threshold
+     * + weighted CC/utility.
+     *
+     * weaponATScore: AT contribution from primary + secondary + throwable
+     * weaponCCScore: CC contribution from primary + secondary + throwable
+     */
+    function randomizeMissionReady(enabledStratagems, weaponATScore, weaponCCScore, maxRetries) {
+        var config = HD2Data.missionReadyConfig;
+        var atNeeded = Math.max(0, config.atThreshold - weaponATScore);
+        maxRetries = maxRetries || 200;
+
+        for (var attempt = 0; attempt < maxRetries; attempt++) {
+            // Phase 1: Guarantee at least 1 support weapon or vehicle
+            var supportPool = enabledStratagems.filter(function (s) {
+                return s.category === 'support-weapon' || s.category === 'vehicle';
+            });
+
+            if (supportPool.length === 0) {
+                return { error: 'No support weapons or vehicles are enabled. Enable at least one.' };
+            }
+
+            // If we need AT, prefer support weapons with AT capability
+            var firstPick;
+            if (atNeeded > 0) {
+                var atSupportPool = supportPool.filter(function (s) {
+                    return (s.atScore || 0) > 0;
+                });
+                firstPick = pickRandom(atSupportPool.length > 0 ? atSupportPool : supportPool);
+            } else {
+                firstPick = weightedPick(supportPool, config);
+            }
+
+            var selected = [firstPick];
+            var failed = false;
+
+            // Phase 2: Fill remaining 3 slots with weighted random
+            for (var slot = 1; slot < 4; slot++) {
+                var candidates = enabledStratagems.filter(function (s) {
+                    for (var j = 0; j < selected.length; j++) {
+                        if (selected[j].id === s.id) return false;
+                    }
+                    return !wouldViolateConstraints(s, selected);
+                });
+
+                if (candidates.length === 0) {
+                    failed = true;
+                    break;
+                }
+
+                selected.push(weightedPick(candidates, config));
+            }
+
+            if (failed || selected.length !== 4) continue;
+
+            // Check total AT score meets threshold
+            var stratATScore = 0;
+            for (var i = 0; i < selected.length; i++) {
+                stratATScore += (selected[i].atScore || 0);
+            }
+            if (stratATScore + weaponATScore < config.atThreshold) continue;
+
+            // Check total CC score meets threshold
+            var stratCCScore = 0;
+            for (var i = 0; i < selected.length; i++) {
+                stratCCScore += (config.crowdClear[selected[i].id] || 0);
+            }
+            if (stratCCScore + weaponCCScore < config.ccThreshold) continue;
+
+            return { stratagems: shuffle(selected) };
+        }
+
+        return { error: 'Could not generate a viable mission ready loadout. Try enabling more stratagems (especially AT and crowd-clear options).' };
+    }
+
+    /**
      * Main randomization function.
      */
     function randomize(mode) {
@@ -147,6 +251,14 @@ window.HD2Randomizer = (function () {
         var stratagemResult;
         if (mode === 'chaos') {
             stratagemResult = randomizeChaos(enabledStratagems);
+        } else if (mode === 'mission-ready') {
+            var weaponATScore = (result.primaryWeapon.atScore || 0) +
+                                (result.secondaryWeapon.atScore || 0) +
+                                (result.throwable.atScore || 0);
+            var weaponCCScore = (result.primaryWeapon.ccScore || 0) +
+                                (result.secondaryWeapon.ccScore || 0) +
+                                (result.throwable.ccScore || 0);
+            stratagemResult = randomizeMissionReady(enabledStratagems, weaponATScore, weaponCCScore);
         } else {
             stratagemResult = randomizeBalanced(enabledStratagems);
         }
@@ -208,7 +320,7 @@ window.HD2Randomizer = (function () {
             var enabledStratagems = HD2Filters.getEnabledItems(HD2Data.stratagems);
 
             var candidates;
-            if (mode === 'balanced') {
+            if (mode === 'balanced' || mode === 'mission-ready') {
                 candidates = enabledStratagems.filter(function (s) {
                     // No duplicates with the other 3
                     for (var j = 0; j < others.length; j++) {
@@ -236,13 +348,21 @@ window.HD2Randomizer = (function () {
                     for (var j = 0; j < others.length; j++) {
                         if (others[j].id === s.id) return false;
                     }
-                    if (mode === 'balanced') return !wouldViolateConstraints(s, others);
+                    if (mode === 'balanced' || mode === 'mission-ready') return !wouldViolateConstraints(s, others);
                     return true;
                 });
             }
 
             if (candidates.length === 0) return { error: 'No valid stratagems available for this slot.' };
-            return { item: pickRandom(candidates), key: 'strat', index: stratIndex };
+
+            // Mission Ready mode uses weighted pick favoring CC/utility
+            var pick;
+            if (mode === 'mission-ready') {
+                pick = weightedPick(candidates, HD2Data.missionReadyConfig);
+            } else {
+                pick = pickRandom(candidates);
+            }
+            return { item: pick, key: 'strat', index: stratIndex };
         }
 
         return { error: 'Unknown slot type.' };
