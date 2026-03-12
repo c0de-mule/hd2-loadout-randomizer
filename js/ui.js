@@ -201,16 +201,28 @@ window.HD2UI = (function () {
 
         var cards = document.querySelectorAll('.loadout-card');
         var finals = [];
+        var preloadedImages = [];
 
-        // Start all cards spinning immediately
+        // Capture final values and preload images into browser cache
+        cards.forEach(function (card) {
+            var nameEl = card.querySelector('.loadout-card__name');
+            var imgEl = card.querySelector('.loadout-card__image img');
+            var finalData = { name: nameEl.textContent, image: imgEl.src };
+            finals.push(finalData);
+
+            // Keep a loaded Image object so the browser caches the decoded bitmap
+            var preload = new Image();
+            preload.src = finalData.image;
+            preloadedImages.push(preload);
+        });
+
+        // Start all cards spinning
         cards.forEach(function (card, index) {
             card.classList.remove('card--spinning', 'card--locked', 'card--rolling', 'card--revealed');
 
             var nameEl = card.querySelector('.loadout-card__name');
             var imgEl = card.querySelector('.loadout-card__image img');
-            finals.push({ name: nameEl.textContent, image: imgEl.src });
 
-            // Clear any onerror from renderCard so it doesn't interfere with cycling
             imgEl.onerror = null;
             card.classList.add('card--spinning');
 
@@ -224,10 +236,11 @@ window.HD2UI = (function () {
             }, 80);
             activeSpinIntervals.push(intervalId);
 
-            // Lock in after staggered delay (two-phase: set content, then reveal)
+            // Lock in after staggered delay
             var stopDelay = 400 + index * 150;
+
+            // Phase 1: Stop cycling, set final content (still blurred)
             setTimeout(function () {
-                // Phase 1: Stop cycling, set final content while still blurred
                 clearInterval(intervalId);
                 nameEl.textContent = finals[index].name;
                 imgEl.onerror = null;
@@ -235,14 +248,14 @@ window.HD2UI = (function () {
                 imgEl.src = finals[index].image;
             }, stopDelay);
 
-            // Phase 2: Reveal on fixed schedule (100ms after content set)
+            // Phase 2: Reveal (fixed 120ms after content set for image decode)
             setTimeout(function () {
                 card.classList.remove('card--spinning');
                 card.classList.add('card--locked');
                 setTimeout(function () {
                     card.classList.remove('card--locked');
                 }, 400);
-            }, stopDelay + 100);
+            }, stopDelay + 120);
         });
     }
 
