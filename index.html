@@ -18,9 +18,9 @@
 
         <!-- Mode Selector -->
         <div class="mode-selector">
-            <button class="mode-btn" id="mode-mission-ready" data-mode="mission-ready">Mission Ready</button>
-            <button class="mode-btn active" id="mode-balanced" data-mode="balanced">Balanced</button>
-            <button class="mode-btn" id="mode-chaos" data-mode="chaos">Chaos</button>
+            <button class="mode-btn" id="mode-mission-ready" data-mode="mission-ready" title="Guarantees anti-tank and crowd control capability">Mission Ready</button>
+            <button class="mode-btn active" id="mode-balanced" data-mode="balanced" title="No duplicate categories, max 1 backpack, max 1 vehicle">Balanced</button>
+            <button class="mode-btn" id="mode-chaos" data-mode="chaos" title="Pure random, no restrictions">Chaos</button>
         </div>
 
         <!-- Error Message -->
@@ -96,15 +96,26 @@
             </div>
         </div>
 
-        <!-- Randomize Button -->
-        <div class="randomize-section">
-            <button class="randomize-btn" id="randomize-btn">Randomize!</button>
+        <!-- Randomize Button (hidden until first roll) -->
+        <div class="randomize-section randomize-section--hidden" id="randomize-section">
+            <button class="randomize-btn" id="randomize-btn">
+                <svg class="randomize-btn__dice" width="24" height="24" viewBox="0 0 100 100" fill="none">
+                    <rect x="8" y="8" width="84" height="84" rx="14" stroke="currentColor" stroke-width="5"/>
+                    <circle cx="30" cy="30" r="7" fill="currentColor"/>
+                    <circle cx="70" cy="30" r="7" fill="currentColor"/>
+                    <circle cx="50" cy="50" r="7" fill="currentColor"/>
+                    <circle cx="30" cy="70" r="7" fill="currentColor"/>
+                    <circle cx="70" cy="70" r="7" fill="currentColor"/>
+                </svg>
+                Randomize!
+            </button>
+            <button class="copy-btn" id="copy-btn" title="Copy loadout to clipboard">Copy Loadout</button>
         </div>
 
         <!-- Filter Panel -->
         <div class="filter-panel" id="filter-panel">
             <div class="filter-panel__header" id="filter-panel-header">
-                <span class="filter-panel__title">Item Filters</span>
+                <span class="filter-panel__title">Item Filters <span class="filter-panel__count" id="filter-count"></span></span>
                 <span class="filter-panel__toggle-icon">&#9660;</span>
             </div>
             <div class="filter-panel__content" id="filter-panel-content">

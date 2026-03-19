@@ -529,6 +529,19 @@ window.HD2UI = (function () {
         });
     }
 
+    function updateFilterCount() {
+        var el = document.getElementById('filter-count');
+        if (!el) return;
+        var allItems = [].concat(HD2Data.primaryWeapons, HD2Data.secondaryWeapons, HD2Data.throwables, HD2Data.stratagems, HD2Data.boosters, HD2Data.armorCombos);
+        var enabled = HD2Filters.getEnabledItems(allItems).length;
+        var total = allItems.length;
+        if (enabled === total) {
+            el.textContent = '';
+        } else {
+            el.textContent = '(' + enabled + '/' + total + ' enabled)';
+        }
+    }
+
     return {
         renderCard: renderCard,
         renderLoadout: renderLoadout,
@@ -542,6 +555,7 @@ window.HD2UI = (function () {
         setActiveMode: setActiveMode,
         renderFilterPanel: renderFilterPanel,
         updateWarbondCheckboxState: updateWarbondCheckboxState,
-        updateAllWarbondCheckboxStates: updateAllWarbondCheckboxStates
+        updateAllWarbondCheckboxStates: updateAllWarbondCheckboxStates,
+        updateFilterCount: updateFilterCount
     };
 })();

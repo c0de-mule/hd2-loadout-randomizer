@@ -26,12 +26,14 @@
             var emptyEl = document.getElementById('loadout-empty');
             var loadoutEl = document.getElementById('loadout-display');
 
-            // Fade out empty state
+            // Fade out empty state, show randomize button
             emptyEl.classList.add('loadout-empty--fading');
+            var randSection = document.getElementById('randomize-section');
 
             setTimeout(function () {
                 emptyEl.style.display = 'none';
                 loadoutEl.classList.remove('loadout--hidden');
+                randSection.classList.remove('randomize-section--hidden');
 
                 // Render content then casino reveal
                 HD2UI.renderLoadout(result);
@@ -65,6 +67,30 @@
 
         btn.addEventListener('click', function () {
             doRandomize();
+        });
+    }
+
+    function initCopyButton() {
+        var btn = document.getElementById('copy-btn');
+        btn.addEventListener('click', function () {
+            if (!currentResult) return;
+            var lines = [];
+            lines.push('Primary: ' + currentResult.primaryWeapon.name);
+            lines.push('Secondary: ' + currentResult.secondaryWeapon.name);
+            lines.push('Throwable: ' + currentResult.throwable.name);
+            lines.push('Armor: ' + currentResult.armor.weightClass + ' - ' + currentResult.armor.passiveName);
+            for (var i = 0; i < currentResult.stratagems.length; i++) {
+                lines.push('Stratagem ' + (i + 1) + ': ' + currentResult.stratagems[i].name);
+            }
+            lines.push('Booster: ' + currentResult.booster.name);
+            navigator.clipboard.writeText(lines.join('\n')).then(function () {
+                btn.textContent = 'Copied!';
+                btn.classList.add('copy-btn--copied');
+                setTimeout(function () {
+                    btn.textContent = 'Copy Loadout';
+                    btn.classList.remove('copy-btn--copied');
+                }, 1500);
+            });
         });
     }
 
@@ -139,17 +165,20 @@
             HD2Filters.selectAll();
             HD2UI.renderFilterPanel();
             initFilterListeners();
+            HD2UI.updateFilterCount();
         });
 
         document.getElementById('filter-deselect-all').addEventListener('click', function () {
             HD2Filters.deselectAll();
             HD2UI.renderFilterPanel();
             initFilterListeners();
+            HD2UI.updateFilterCount();
         });
 
         // Render the filter panel
         HD2UI.renderFilterPanel();
         initFilterListeners();
+        HD2UI.updateFilterCount();
     }
 
     function initFilterListeners() {
@@ -190,6 +219,7 @@
                 });
 
                 HD2UI.updateWarbondCheckboxState(warbondId);
+                HD2UI.updateFilterCount();
             });
         });
 
@@ -203,6 +233,7 @@
                 var group = this.closest('.warbond-group');
                 var warbondId = group.querySelector('[data-warbond-toggle]').dataset.warbondToggle;
                 HD2UI.updateWarbondCheckboxState(warbondId);
+                HD2UI.updateFilterCount();
             });
         });
     }
@@ -214,6 +245,7 @@
         initFilterPanel();
         initRandomizeButton();
         initDiceButton();
+        initCopyButton();
         initCardClickHandlers();
     });
 })();

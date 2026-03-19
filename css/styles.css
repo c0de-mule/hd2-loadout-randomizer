@@ -219,6 +219,7 @@ button {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+    object-fit: contain;
     filter: brightness(0.95);
 }
 
@@ -249,7 +250,14 @@ button {
     margin-bottom: var(--space-2xl);
 }
 
+.randomize-section--hidden {
+    display: none;
+}
+
 .randomize-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-md);
     padding: var(--space-md) var(--space-2xl);
     background: var(--color-primary);
     color: var(--color-bg);
@@ -263,6 +271,19 @@ button {
     box-shadow: 0 0 20px rgba(245, 197, 24, 0.3);
 }
 
+.randomize-btn__dice {
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.randomize-btn:hover .randomize-btn__dice {
+    transform: rotate(20deg) scale(1.15);
+}
+
+.randomize-btn:active .randomize-btn__dice {
+    transform: rotate(-10deg) scale(0.9);
+}
+
 .randomize-btn:hover {
     background: var(--color-primary-hover);
     border-color: var(--color-primary-hover);
@@ -273,6 +294,31 @@ button {
 .randomize-btn:active {
     transform: scale(0.98);
     box-shadow: 0 0 10px rgba(245, 197, 24, 0.2);
+}
+
+.copy-btn {
+    display: inline-block;
+    margin-top: var(--space-sm);
+    padding: var(--space-xs) var(--space-md);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    transition: all var(--transition-fast);
+}
+
+.copy-btn:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.copy-btn--copied {
+    color: #4caf50;
+    border-color: #4caf50;
 }
 
 /* Pulse animation for initial attention */
@@ -323,16 +369,22 @@ button {
 
 .loadout-empty__dice:hover {
     border-color: var(--color-primary);
-    box-shadow: 0 0 35px rgba(245, 197, 24, 0.5);
-    transform: scale(1.08);
+    background: rgba(245, 197, 24, 0.1);
+    box-shadow: 0 0 40px rgba(245, 197, 24, 0.6), 0 0 80px rgba(245, 197, 24, 0.2);
+    transform: scale(1.12);
 }
 
 .loadout-empty__dice:hover svg {
-    transform: rotate(20deg);
+    transform: rotate(20deg) scale(1.1);
 }
 
 .loadout-empty__dice:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
+    box-shadow: 0 0 15px rgba(245, 197, 24, 0.3);
+}
+
+.loadout-empty__dice:active svg {
+    transform: rotate(-15deg);
 }
 
 .loadout-empty__dice svg {
@@ -478,6 +530,14 @@ button {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1px;
+}
+
+.filter-panel__count {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--color-text-muted);
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 .filter-panel__toggle-icon {
@@ -902,12 +962,19 @@ button {
         font-size: 1.4rem;
     }
 
+    .mode-selector {
+        flex-wrap: wrap;
+        padding: 0 var(--space-sm);
+    }
+
     .loadout__row--equipment {
         grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-sm);
     }
 
     .loadout__row--stratagems {
         grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-sm);
     }
 
     .loadout-card__image {
