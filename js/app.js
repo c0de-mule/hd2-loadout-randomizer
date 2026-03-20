@@ -127,6 +127,10 @@
         var emptyEl = document.getElementById('loadout-empty');
         var randSection = document.getElementById('randomize-section');
         var diceBtn = document.getElementById('dice-btn');
+        var imageCardBtn = document.getElementById('image-card-btn');
+
+        // Hide image card button in squad/daily mode
+        imageCardBtn.style.display = (isSquadMode || isDailyMode) ? 'none' : '';
 
         // Hide everything first
         soloLoadout.classList.add('loadout--hidden');
