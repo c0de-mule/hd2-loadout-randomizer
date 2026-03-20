@@ -103,12 +103,6 @@
 
                 squadDisplay.classList.remove('squad-display--hidden');
                 randSection.classList.remove('randomize-section--hidden');
-                randSection.classList.add('randomize-section--entering');
-
-                void randSection.offsetHeight;
-                randSection.classList.add('randomize-section--visible');
-
-                HD2UI.staggerRevealSquadCards();
 
                 history.replaceState(null, '', HD2Sharing.encodeSquadLoadout(currentSquadResults, currentMode));
             }, 300);
@@ -663,8 +657,16 @@
         var btn = document.getElementById('about-toggle');
         var content = document.getElementById('about-content');
         btn.addEventListener('click', function () {
+            var opening = !content.classList.contains('visible');
             content.classList.toggle('visible');
-            btn.textContent = content.classList.contains('visible') ? 'Close' : 'About this tool';
+            btn.textContent = opening ? 'Close' : 'About this tool';
+
+            if (opening) {
+                // Smooth scroll so the about content is in view
+                setTimeout(function () {
+                    btn.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
+            }
         });
     }
 

@@ -375,10 +375,16 @@ button {
     box-shadow: 0 0 10px rgba(245, 197, 24, 0.2);
 }
 
+.action-btns {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: center;
+    margin-top: var(--space-sm);
+}
+
 .copy-btn {
     display: inline-block;
-    margin-top: var(--space-sm);
-    padding: var(--space-xs) var(--space-md);
+    padding: var(--space-sm) var(--space-lg);
     font-size: 0.8rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -1021,20 +1027,22 @@ button {
 }
 
 .footer__brand-name {
-    display: block;
-    font-size: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 1.15rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 3px;
+    letter-spacing: 5px;
     color: var(--color-text);
 }
 
-.footer__brand-tagline {
-    display: block;
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-    font-style: italic;
-    margin-top: 2px;
+.footer__brand-bracket {
+    display: inline-flex;
+    align-items: center;
+    color: #d4772c;
+    font-size: 1.3rem;
+    line-height: 1;
+    transform: translateY(-2px);
 }
 
 .footer__about {
@@ -1057,22 +1065,30 @@ button {
 }
 
 .footer__about-content {
-    display: none;
     max-width: 540px;
-    margin: var(--space-md) auto 0;
+    margin: 0 auto;
     text-align: left;
     line-height: 1.6;
     color: var(--color-text-muted);
     font-size: 0.8rem;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.35s ease, opacity 0.3s ease, margin 0.35s ease;
 }
 
 .footer__about-content.visible {
-    display: block;
-    animation: help-fade-in 0.2s ease-out;
+    max-height: 400px;
+    opacity: 1;
+    margin-top: var(--space-md);
 }
 
 .footer__about-content p + p {
     margin-top: var(--space-sm);
+}
+
+.footer__about-content p:last-child {
+    margin-top: var(--space-md);
     color: var(--color-text);
     font-weight: 600;
     font-style: italic;
