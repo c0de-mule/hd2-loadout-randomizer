@@ -24,7 +24,10 @@ window.HD2Data.armorPassives = [
     { id: "rock-solid", name: "Rock Solid", image: "https://helldivers.wiki.gg/images/Rock_Solid_Armor_Passive_Icon.svg" },
     { id: "reduced-signature", name: "Reduced Signature", image: "https://helldivers.wiki.gg/images/Reduced_Signature_Armor_Passive_Icon.svg" },
     { id: "supplementary-adrenaline", name: "Supplementary Adrenaline", image: "https://helldivers.wiki.gg/images/Supplementary_Adrenaline_Armor_Passive_Icon.svg" },
-    { id: "feet-first", name: "Feet First", image: "https://helldivers.wiki.gg/images/Feet_First_Armor_Passive_Icon.svg" }
+    { id: "feet-first", name: "Feet First", image: "https://helldivers.wiki.gg/images/Feet_First_Armor_Passive_Icon.svg" },
+    { id: "concussive-padding-grenadier", name: "Concussive Padding, Grenadier", image: "https://helldivers.wiki.gg/images/Concussive_Padding_Armor_Passive_Icon.svg" },
+    { id: "concussive-padding-hazmat", name: "Concussive Padding, Hazmat", image: "https://helldivers.wiki.gg/images/Concussive_Padding_Armor_Passive_Icon.svg" },
+    { id: "concussive-padding-reinforced", name: "Concussive Padding, Reinforced", image: "https://helldivers.wiki.gg/images/Concussive_Padding_Armor_Passive_Icon.svg" }
 ];
 
 // Each combo = a valid weight class + passive pairing from a specific source.

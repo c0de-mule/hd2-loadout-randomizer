@@ -75,7 +75,10 @@ window.HD2Data.factionConfig = {
         'gunslinger':           { terminids: 1, automatons: 1, illuminate: 1 },
         'reinforced-epaulettes': { terminids: 1, automatons: 1, illuminate: 1 },
         'servo-assisted':       { terminids: 1, automatons: 1, illuminate: 1 },
-        'integrated-explosives': { terminids: 1, automatons: 1, illuminate: 1 }
+        'integrated-explosives': { terminids: 1, automatons: 1, illuminate: 1 },
+        'concussive-padding-grenadier': { terminids: 1.5, automatons: 1.5, illuminate: 1.5 },
+        'concussive-padding-hazmat': { terminids: 1, automatons: 1, illuminate: 1 },
+        'concussive-padding-reinforced': { terminids: 1.5, automatons: 1.5, illuminate: 1.5 }
     },
 
     // =========================================================================
