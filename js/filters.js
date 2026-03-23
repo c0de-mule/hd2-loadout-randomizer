@@ -189,7 +189,6 @@ window.HD2Filters = (function () {
         getWarbondItemState: getWarbondItemState,
         selectAll: selectAll,
         deselectAll: deselectAll,
-        getItemsByWarbond: getItemsByWarbond,
         getItemsByWarbondGrouped: getItemsByWarbondGrouped
     };
 })();
