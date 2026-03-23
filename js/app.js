@@ -45,6 +45,7 @@
 
                 // Render content so card elements have final values ready
                 HD2UI.renderLoadout(result);
+                highlightRolledFaction();
 
                 // Immediately start casino spin — this masks final content
                 // with random items before anything is visible
