@@ -46,6 +46,25 @@
             <button class="mode-help-btn" id="mode-help-btn" aria-label="Mode descriptions">?</button>
         </div>
 
+        <!-- Faction Selector (Mission Ready only) -->
+        <div class="faction-selector faction-selector--hidden" id="faction-selector">
+            <button class="faction-btn active" data-faction="any">
+                <span class="faction-btn__label">Any</span>
+            </button>
+            <button class="faction-btn" data-faction="terminids">
+                <img class="faction-btn__icon" src="https://helldivers.wiki.gg/images/Terminid_icon.svg" alt="" width="18" height="18">
+                <span class="faction-btn__label">Terminids</span>
+            </button>
+            <button class="faction-btn" data-faction="automatons">
+                <img class="faction-btn__icon" src="https://helldivers.wiki.gg/images/Automaton_icon.svg" alt="" width="18" height="18">
+                <span class="faction-btn__label">Automatons</span>
+            </button>
+            <button class="faction-btn" data-faction="illuminate">
+                <img class="faction-btn__icon" src="https://helldivers.wiki.gg/images/Illuminate_icon.svg" alt="" width="18" height="18">
+                <span class="faction-btn__label">Illuminate</span>
+            </button>
+        </div>
+
         <!-- Secondary Controls -->
         <div class="secondary-controls">
             <button class="secondary-btn" id="squad-toggle-btn">
@@ -66,13 +85,13 @@
         <!-- Mode Descriptions -->
         <div class="mode-help" id="mode-help">
             <div class="mode-help__item">
-                <strong>Mission Ready</strong> &mdash; Guarantees anti-tank and crowd control capability. Stratagems are weighted toward orbitals/eagles and sentries/emplacements for balanced color distribution.
+                <strong>Mission Ready</strong> &mdash; Faction-optimized loadouts. Scores every item for anti-tank, crowd control, and elite threat handling. Guarantees your loadout can handle what the faction throws at you.
             </div>
             <div class="mode-help__item">
-                <strong>Balanced</strong> &mdash; No duplicate stratagem categories, max 1 backpack, max 1 vehicle. Good variety without constraints on damage types.
+                <strong>Balanced</strong> &mdash; Viable loadouts with smart constraints. Guarantees a support weapon, limits duplicates, and ensures you can close objectives.
             </div>
             <div class="mode-help__item">
-                <strong>Chaos</strong> &mdash; Pure random, no restrictions. Anything goes.
+                <strong>Chaos</strong> &mdash; Pure random. No restrictions, no safety net.
             </div>
         </div>
 
@@ -255,6 +274,7 @@
     <script src="js/data/boosters.js"></script>
     <script src="js/data/armor.js"></script>
     <script src="js/data/missionReadyConfig.js"></script>
+    <script src="js/data/factionConfig.js"></script>
 
     <!-- Logic files -->
     <script src="js/storage.js"></script>

@@ -3,6 +3,7 @@
  */
 (function () {
     var currentMode = 'balanced';
+    var currentFaction = 'any';
     var isFirstSoloRoll = true;
     var isFirstSquadRoll = true;
     var currentResult = null;
@@ -61,7 +62,7 @@
                 randSection.classList.add('randomize-section--visible');
 
                 // Update URL hash so the loadout is shareable
-                history.replaceState(null, '', HD2Sharing.encodeLoadout(result, currentMode));
+                history.replaceState(null, '', HD2Sharing.encodeLoadout(result, currentMode, currentFaction));
             }, 300);
             return;
         }
@@ -70,7 +71,7 @@
         HD2UI.casinoRevealCards(currentMode);
 
         // Update URL hash so the loadout is shareable
-        history.replaceState(null, '', HD2Sharing.encodeLoadout(result, currentMode));
+        history.replaceState(null, '', HD2Sharing.encodeLoadout(result, currentMode, currentFaction));
     }
 
     function doSquadRandomize() {
@@ -114,7 +115,7 @@
                 // Now stagger them in
                 HD2UI.staggerRevealSquadCards();
 
-                history.replaceState(null, '', HD2Sharing.encodeSquadLoadout(currentSquadResults, currentMode));
+                history.replaceState(null, '', HD2Sharing.encodeSquadLoadout(currentSquadResults, currentMode, currentFaction));
             }, 300);
             return;
         }
@@ -122,7 +123,7 @@
         HD2UI.renderSquadLoadout(currentSquadResults);
         HD2UI.staggerRevealSquadCards();
 
-        history.replaceState(null, '', HD2Sharing.encodeSquadLoadout(currentSquadResults, currentMode));
+        history.replaceState(null, '', HD2Sharing.encodeSquadLoadout(currentSquadResults, currentMode, currentFaction));
     }
 
     /**
@@ -166,7 +167,7 @@
                 randSection.classList.remove('randomize-section--hidden');
                 randSection.classList.add('randomize-section--entering', 'randomize-section--visible');
                 HD2UI.renderSquadLoadout(currentSquadResults);
-                history.replaceState(null, '', HD2Sharing.encodeSquadLoadout(currentSquadResults, currentMode));
+                history.replaceState(null, '', HD2Sharing.encodeSquadLoadout(currentSquadResults, currentMode, currentFaction));
             } else {
                 // No squad results yet — show empty state
                 emptyEl.style.display = '';
@@ -182,7 +183,7 @@
                 randSection.classList.remove('randomize-section--hidden');
                 randSection.classList.add('randomize-section--entering', 'randomize-section--visible');
                 HD2UI.renderLoadout(currentResult);
-                history.replaceState(null, '', HD2Sharing.encodeLoadout(currentResult, currentMode));
+                history.replaceState(null, '', HD2Sharing.encodeLoadout(currentResult, currentMode, currentFaction));
             } else {
                 // No solo results yet — show empty state
                 emptyEl.style.display = '';
@@ -214,12 +215,51 @@
     function initModeSelector() {
         currentMode = HD2Storage.loadMode();
         HD2UI.setActiveMode(currentMode);
+        updateFactionVisibility();
 
         document.querySelectorAll('.mode-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 currentMode = this.dataset.mode;
                 HD2Storage.saveMode(currentMode);
                 HD2UI.setActiveMode(currentMode);
+                updateFactionVisibility();
+            });
+        });
+    }
+
+    function updateFactionVisibility() {
+        var factionEl = document.getElementById('faction-selector');
+        if (!factionEl) return;
+        if (currentMode === 'mission-ready') {
+            factionEl.classList.remove('faction-selector--hidden');
+        } else {
+            factionEl.classList.add('faction-selector--hidden');
+        }
+    }
+
+    function setFaction(faction) {
+        currentFaction = faction || 'any';
+        HD2Storage.saveFaction(currentFaction);
+        HD2Randomizer.setFaction(currentFaction);
+
+        var factionBtns = document.querySelectorAll('.faction-btn');
+        factionBtns.forEach(function (btn) {
+            if (btn.dataset.faction === currentFaction) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+
+    function initFactionSelector() {
+        var savedFaction = HD2Storage.loadFaction();
+        setFaction(savedFaction);
+
+        var factionBtns = document.querySelectorAll('.faction-btn');
+        factionBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                setFaction(this.dataset.faction);
             });
         });
     }
@@ -327,12 +367,12 @@
 
             if (isSquadMode) {
                 if (!currentSquadResults) return;
-                url = HD2Sharing.buildSquadShareURL(currentSquadResults, currentMode);
-                hash = HD2Sharing.encodeSquadLoadout(currentSquadResults, currentMode);
+                url = HD2Sharing.buildSquadShareURL(currentSquadResults, currentMode, currentFaction);
+                hash = HD2Sharing.encodeSquadLoadout(currentSquadResults, currentMode, currentFaction);
             } else {
                 if (!currentResult) return;
-                url = HD2Sharing.buildShareURL(currentResult, currentMode);
-                hash = HD2Sharing.encodeLoadout(currentResult, currentMode);
+                url = HD2Sharing.buildShareURL(currentResult, currentMode, currentFaction);
+                hash = HD2Sharing.encodeLoadout(currentResult, currentMode, currentFaction);
             }
 
             // Update the browser URL without reloading
@@ -370,6 +410,8 @@
             currentMode = squadDecoded.mode;
             HD2Storage.saveMode(currentMode);
             HD2UI.setActiveMode(currentMode);
+            setFaction(squadDecoded.faction || 'any');
+            updateFactionVisibility();
 
             currentSquadResults = squadResults;
 
@@ -395,10 +437,12 @@
         var result = HD2Sharing.resolveLoadout(decoded);
         if (!result) return false;
 
-        // Set mode to match the shared loadout
+        // Set mode and faction to match the shared loadout
         currentMode = decoded.mode;
         HD2Storage.saveMode(currentMode);
         HD2UI.setActiveMode(currentMode);
+        setFaction(decoded.faction || 'any');
+        updateFactionVisibility();
 
         // Display the loadout
         currentResult = result;
@@ -476,7 +520,7 @@
                 HD2UI.casinoRevealSingleCard(card.id);
 
                 // Update URL hash after reroll
-                history.replaceState(null, '', HD2Sharing.encodeLoadout(currentResult, currentMode));
+                history.replaceState(null, '', HD2Sharing.encodeLoadout(currentResult, currentMode, currentFaction));
             });
         });
     }
@@ -711,6 +755,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         HD2Filters.init();
         initModeSelector();
+        initFactionSelector();
         initModeHelp();
         initSquadToggle();
         initDailyChallenge();

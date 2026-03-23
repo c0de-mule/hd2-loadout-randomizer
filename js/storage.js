@@ -5,7 +5,8 @@ window.HD2Storage = (function () {
     var KEYS = {
         WARBOND_TOGGLES: 'hd2-warbond-toggles',
         ITEM_TOGGLES: 'hd2-item-toggles',
-        MODE: 'hd2-mode'
+        MODE: 'hd2-mode',
+        FACTION: 'hd2-faction'
     };
 
     function save(key, data) {
@@ -49,12 +50,22 @@ window.HD2Storage = (function () {
         return load(KEYS.MODE, 'balanced');
     }
 
+    function saveFaction(faction) {
+        save(KEYS.FACTION, faction);
+    }
+
+    function loadFaction() {
+        return load(KEYS.FACTION, 'any');
+    }
+
     return {
         saveWarbondToggles: saveWarbondToggles,
         loadWarbondToggles: loadWarbondToggles,
         saveItemToggles: saveItemToggles,
         loadItemToggles: loadItemToggles,
         saveMode: saveMode,
-        loadMode: loadMode
+        loadMode: loadMode,
+        saveFaction: saveFaction,
+        loadFaction: loadFaction
     };
 })();

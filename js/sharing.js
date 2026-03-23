@@ -10,11 +10,14 @@ window.HD2Sharing = (function () {
     /**
      * Encode a solo loadout result into a URL hash string.
      */
-    function encodeLoadout(result, mode) {
+    function encodeLoadout(result, mode, faction) {
         if (!result) return '';
 
         var params = [];
         params.push('m=' + encodeURIComponent(mode || 'balanced'));
+        if (mode === 'mission-ready' && faction && faction !== 'any') {
+            params.push('f=' + encodeURIComponent(faction));
+        }
         params.push('p=' + encodeURIComponent(result.primaryWeapon.id));
         params.push('s=' + encodeURIComponent(result.secondaryWeapon.id));
         params.push('t=' + encodeURIComponent(result.throwable.id));
@@ -31,12 +34,15 @@ window.HD2Sharing = (function () {
     /**
      * Encode a squad loadout (4 results) into a URL hash string.
      */
-    function encodeSquadLoadout(results, mode) {
+    function encodeSquadLoadout(results, mode, faction) {
         if (!results || results.length !== 4) return '';
 
         var params = [];
         params.push('squad');
         params.push('m=' + encodeURIComponent(mode || 'balanced'));
+        if (mode === 'mission-ready' && faction && faction !== 'any') {
+            params.push('f=' + encodeURIComponent(faction));
+        }
 
         for (var p = 0; p < 4; p++) {
             var r = results[p];
@@ -99,6 +105,7 @@ window.HD2Sharing = (function () {
 
         return {
             mode: map.m || 'balanced',
+            faction: map.f || 'any',
             primaryId: map.p,
             secondaryId: map.s,
             throwableId: map.t,
@@ -144,6 +151,7 @@ window.HD2Sharing = (function () {
         return {
             squad: true,
             mode: map.m || 'balanced',
+            faction: map.f || 'any',
             players: players
         };
     }
@@ -207,8 +215,8 @@ window.HD2Sharing = (function () {
     /**
      * Build the full shareable URL for the current page.
      */
-    function buildShareURL(result, mode) {
-        var hash = encodeLoadout(result, mode);
+    function buildShareURL(result, mode, faction) {
+        var hash = encodeLoadout(result, mode, faction);
         var url = window.location.href.split('#')[0] + hash;
         return url;
     }
@@ -216,8 +224,8 @@ window.HD2Sharing = (function () {
     /**
      * Build the full shareable URL for a squad loadout.
      */
-    function buildSquadShareURL(results, mode) {
-        var hash = encodeSquadLoadout(results, mode);
+    function buildSquadShareURL(results, mode, faction) {
+        var hash = encodeSquadLoadout(results, mode, faction);
         var url = window.location.href.split('#')[0] + hash;
         return url;
     }

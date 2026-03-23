@@ -1,7 +1,10 @@
 /**
  * Core randomization logic for Balanced, Mission Ready, and Chaos modes.
+ * Mission Ready mode is faction-aware with 3-dimensional scoring.
  */
 window.HD2Randomizer = (function () {
+
+    var currentFaction = 'any';
 
     /**
      * Pick a random element from an array.
@@ -57,6 +60,22 @@ window.HD2Randomizer = (function () {
         if (sentryEmplacementCount > 2) return true;   // Max 2 sentries/emplacements
         if (orbitalCount > 2) return true;             // Max 2 orbitals
         if (eagleCount > 2) return true;               // Max 2 eagles
+
+        // No persistent AT + expendable AT overlap
+        // Persistent AT = main support weapon with atScore >= 2 (unless allowExpendableAT)
+        // Expendable AT = expendable support weapon with atScore >= 1
+        var hasPersistentAT = false;
+        var hasExpendableAT = false;
+        for (var i = 0; i < hypothetical.length; i++) {
+            var s = hypothetical[i];
+            if (s.category === 'support-weapon' && s.subcategory === 'main' && (s.atScore || 0) >= 2 && !s.allowExpendableAT) {
+                hasPersistentAT = true;
+            }
+            if (s.category === 'support-weapon' && s.subcategory === 'expendable' && (s.atScore || 0) >= 1) {
+                hasExpendableAT = true;
+            }
+        }
+        if (hasPersistentAT && hasExpendableAT) return true;
 
         return false;
     }
@@ -121,21 +140,69 @@ window.HD2Randomizer = (function () {
         return { stratagems: pool.slice(0, 4) };
     }
 
+    // =========================================================================
+    // Faction-Aware Mission Ready Mode
+    // =========================================================================
+
     /**
-     * Pick from candidates using weighted random selection.
-     * Items tagged as crowd-clear or utility in the config get bonus weight.
-     * Orbitals get a bonus to compensate for their small pool size.
+     * Get an item's effective score for a given dimension and faction.
+     * Checks faction overrides first, then falls back to item's base score.
      */
-    function weightedPick(candidates, config) {
+    function getScore(item, dimension, faction) {
+        var config = HD2Data.factionConfig;
+        var overrides = config.factionScoreOverrides[faction];
+        if (overrides && overrides[item.id] && overrides[item.id][dimension] !== undefined) {
+            return overrides[item.id][dimension];
+        }
+        return item[dimension] || 0;
+    }
+
+    /**
+     * Calculate a stratagem's synergy weight based on how much it addresses
+     * remaining scoring deficits vs how redundant it would be.
+     */
+    function calcSynergyWeight(candidate, deficits, faction, config) {
+        var weight = 1; // base weight
+
+        // How much does this candidate help fill remaining gaps?
+        var contribution = 0;
+        var cc = getScore(candidate, 'ccScore', faction);
+        var elite = getScore(candidate, 'eliteScore', faction);
+        var at = getScore(candidate, 'atScore', faction);
+
+        contribution += Math.min(cc, Math.max(0, deficits.cc));
+        contribution += Math.min(elite, Math.max(0, deficits.elite));
+        contribution += Math.min(at, Math.max(0, deficits.at));
+
+        // Light penalty for overshoot in already-met dimensions
+        var overshoot = 0;
+        if (deficits.cc <= 0) overshoot += cc * 0.3;
+        if (deficits.elite <= 0) overshoot += elite * 0.3;
+        if (deficits.at <= 0) overshoot += at * 0.3;
+
+        weight += contribution * 2;
+        weight = Math.max(0.5, weight - overshoot);
+
+        // Category balance weights (compensate for pool size imbalance)
+        if (candidate.category === 'orbital' || candidate.category === 'eagle') {
+            weight *= config.redStratagemWeight;
+        }
+        if (candidate.category === 'sentry' || candidate.category === 'emplacement') {
+            weight *= config.greenStratagemWeight;
+        }
+
+        return weight;
+    }
+
+    /**
+     * Pick from candidates using synergy-aware weighted random selection.
+     */
+    function synergyWeightedPick(candidates, deficits, faction, config) {
         var weights = [];
         var totalWeight = 0;
 
         for (var i = 0; i < candidates.length; i++) {
-            var w = 1; // base weight
-            if (config.crowdClear[candidates[i].id]) w += (config.crowdClearWeight - 1);
-            if (config.utility[candidates[i].id]) w += (config.utilityWeight - 1);
-            if (candidates[i].category === 'orbital' || candidates[i].category === 'eagle') w += (config.redStratagemWeight - 1);
-            if (candidates[i].category === 'sentry' || candidates[i].category === 'emplacement') w += (config.greenStratagemWeight - 1);
+            var w = calcSynergyWeight(candidates[i], deficits, faction, config);
             weights.push(w);
             totalWeight += w;
         }
@@ -150,19 +217,31 @@ window.HD2Randomizer = (function () {
     }
 
     /**
-     * Randomize stratagems in Mission Ready mode.
-     * Uses balanced constraints + AT score threshold + CC score threshold
-     * + weighted CC/utility.
-     *
-     * weaponATScore: AT contribution from primary + secondary + throwable
-     * weaponCCScore: CC contribution from primary + secondary + throwable
+     * Update deficits after adding an item to the loadout.
      */
-    function randomizeMissionReady(enabledStratagems, weaponATScore, weaponCCScore, maxRetries) {
-        var config = HD2Data.missionReadyConfig;
-        var atNeeded = Math.max(0, config.atThreshold - weaponATScore);
+    function updateDeficits(deficits, item, faction) {
+        deficits.cc -= getScore(item, 'ccScore', faction);
+        deficits.elite -= getScore(item, 'eliteScore', faction);
+        deficits.at -= getScore(item, 'atScore', faction);
+    }
+
+    /**
+     * Randomize stratagems in faction-aware Mission Ready mode.
+     * Uses 3-dimensional scoring with synergy-aware weighted selection.
+     */
+    function randomizeMissionReady(enabledStratagems, weaponScores, faction, maxRetries) {
+        var config = HD2Data.factionConfig;
+        var thresholds = config.thresholds[faction] || config.thresholds.any;
         maxRetries = maxRetries || 200;
 
         for (var attempt = 0; attempt < maxRetries; attempt++) {
+            // Calculate deficits: how much each dimension still needs from stratagems
+            var deficits = {
+                cc: thresholds.cc - weaponScores.cc,
+                elite: thresholds.elite - weaponScores.elite,
+                at: thresholds.at - weaponScores.at
+            };
+
             // Phase 1: Guarantee at least 1 support weapon or vehicle
             var supportPool = enabledStratagems.filter(function (s) {
                 return s.category === 'support-weapon' || s.category === 'vehicle';
@@ -172,21 +251,14 @@ window.HD2Randomizer = (function () {
                 return { error: 'No support weapons or vehicles are enabled. Enable at least one.' };
             }
 
-            // If we need AT, prefer support weapons with AT capability
-            var firstPick;
-            if (atNeeded > 0) {
-                var atSupportPool = supportPool.filter(function (s) {
-                    return (s.atScore || 0) > 0;
-                });
-                firstPick = pickRandom(atSupportPool.length > 0 ? atSupportPool : supportPool);
-            } else {
-                firstPick = weightedPick(supportPool, config);
-            }
-
+            // Prefer support weapons that address the largest deficit
+            var firstPick = synergyWeightedPick(supportPool, deficits, faction, config);
             var selected = [firstPick];
+            updateDeficits(deficits, firstPick, faction);
+
             var failed = false;
 
-            // Phase 2: Fill remaining 3 slots with weighted random
+            // Phase 2: Fill remaining 3 slots with synergy-aware weighted random
             for (var slot = 1; slot < 4; slot++) {
                 var candidates = enabledStratagems.filter(function (s) {
                     for (var j = 0; j < selected.length; j++) {
@@ -200,33 +272,35 @@ window.HD2Randomizer = (function () {
                     break;
                 }
 
-                selected.push(weightedPick(candidates, config));
+                var pick = synergyWeightedPick(candidates, deficits, faction, config);
+                selected.push(pick);
+                updateDeficits(deficits, pick, faction);
             }
 
             if (failed || selected.length !== 4) continue;
 
-            // Check total AT score meets threshold
-            var stratATScore = 0;
+            // Validate: all three thresholds met
+            var totalCC = weaponScores.cc;
+            var totalElite = weaponScores.elite;
+            var totalAT = weaponScores.at;
             for (var i = 0; i < selected.length; i++) {
-                stratATScore += (selected[i].atScore || 0);
+                totalCC += getScore(selected[i], 'ccScore', faction);
+                totalElite += getScore(selected[i], 'eliteScore', faction);
+                totalAT += getScore(selected[i], 'atScore', faction);
             }
-            if (stratATScore + weaponATScore < config.atThreshold) continue;
 
-            // Check total CC score meets threshold
-            var stratCCScore = 0;
-            for (var i = 0; i < selected.length; i++) {
-                stratCCScore += (config.crowdClear[selected[i].id] || 0);
-            }
-            if (stratCCScore + weaponCCScore < config.ccThreshold) continue;
+            if (totalCC < thresholds.cc) continue;
+            if (totalElite < thresholds.elite) continue;
+            if (totalAT < thresholds.at) continue;
 
             return { stratagems: shuffle(selected) };
         }
 
-        return { error: 'Could not generate a viable mission ready loadout. Try enabling more stratagems (especially AT and crowd-clear options).' };
+        return { error: 'Could not generate a viable mission ready loadout. Try enabling more stratagems or selecting a different faction.' };
     }
 
     /**
-     * Check if a loadout has at least one way to close bug holes / destroy fabricators.
+     * Check if a loadout has at least one way to close objectives.
      * Checks primary, secondary, throwable, and stratagems.
      */
     function canCloseObjectives(result) {
@@ -243,20 +317,160 @@ window.HD2Randomizer = (function () {
     }
 
     /**
+     * Check if loadout meets hard requirements for the given faction.
+     */
+    function meetsHardRequirements(result, faction) {
+        var config = HD2Data.factionConfig;
+        var reqs = config.hardRequirements[faction] || config.hardRequirements.any;
+
+        // Check objective closing
+        if (reqs.closesObjectives && !canCloseObjectives(result)) return false;
+
+        // Check minimum single-item AT score
+        if (reqs.minSingleAT > 0) {
+            var found = false;
+            // Check weapons
+            if ((result.primaryWeapon.atScore || 0) >= reqs.minSingleAT) found = true;
+            if (!found && (result.secondaryWeapon.atScore || 0) >= reqs.minSingleAT) found = true;
+            if (!found && (result.throwable.atScore || 0) >= reqs.minSingleAT) found = true;
+            // Check stratagems
+            if (!found) {
+                for (var i = 0; i < result.stratagems.length; i++) {
+                    if (getScore(result.stratagems[i], 'atScore', faction) >= reqs.minSingleAT) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Weighted pick for weapons/throwables based on faction scores.
+     * Items with higher faction-relevant scores are more likely but
+     * low-score items can still appear (base weight of 1).
+     */
+    function pickFactionWeapon(pool, faction) {
+        var weights = [];
+        var totalWeight = 0;
+
+        for (var i = 0; i < pool.length; i++) {
+            var item = pool[i];
+            var cc = getScore(item, 'ccScore', faction);
+            var elite = getScore(item, 'eliteScore', faction);
+            var at = getScore(item, 'atScore', faction);
+            // Base weight 1 + total score contribution
+            var w = 1 + (cc + elite + at) * 0.5;
+            weights.push(w);
+            totalWeight += w;
+        }
+
+        var r = Math.random() * totalWeight;
+        var cumulative = 0;
+        for (var i = 0; i < pool.length; i++) {
+            cumulative += weights[i];
+            if (r < cumulative) return pool[i];
+        }
+        return pool[pool.length - 1];
+    }
+
+    /**
+     * Weighted pick for armor based on faction preferences.
+     */
+    function pickFactionArmor(enabledArmor, faction) {
+        var config = HD2Data.factionConfig;
+        var weightPref = config.armorWeightPreference[faction] || config.armorWeightPreference.any;
+        var passiveAff = config.armorPassiveAffinity;
+
+        var weights = [];
+        var totalWeight = 0;
+
+        for (var i = 0; i < enabledArmor.length; i++) {
+            var armor = enabledArmor[i];
+            var w = 1;
+
+            // Weight class preference
+            var classMult = weightPref[armor.weightClass] || 1;
+            w *= classMult;
+
+            // Passive affinity
+            if (passiveAff[armor.passive]) {
+                var affinity = passiveAff[armor.passive][faction] || 1;
+                w *= affinity;
+            }
+
+            weights.push(w);
+            totalWeight += w;
+        }
+
+        var r = Math.random() * totalWeight;
+        var cumulative = 0;
+        for (var i = 0; i < enabledArmor.length; i++) {
+            cumulative += weights[i];
+            if (r < cumulative) return enabledArmor[i];
+        }
+        return enabledArmor[enabledArmor.length - 1];
+    }
+
+    /**
+     * Weighted pick for boosters based on faction preferences.
+     */
+    function pickFactionBooster(enabledBoosters, faction) {
+        var config = HD2Data.factionConfig;
+        var boosterAff = config.boosterAffinity;
+
+        var weights = [];
+        var totalWeight = 0;
+
+        for (var i = 0; i < enabledBoosters.length; i++) {
+            var booster = enabledBoosters[i];
+            var w = 1;
+
+            if (boosterAff[booster.id]) {
+                w = boosterAff[booster.id][faction] || 1;
+            }
+
+            weights.push(w);
+            totalWeight += w;
+        }
+
+        var r = Math.random() * totalWeight;
+        var cumulative = 0;
+        for (var i = 0; i < enabledBoosters.length; i++) {
+            cumulative += weights[i];
+            if (r < cumulative) return enabledBoosters[i];
+        }
+        return enabledBoosters[enabledBoosters.length - 1];
+    }
+
+    /**
      * Main randomization function.
      */
     function randomize(mode) {
-        // For balanced/mission-ready, retry the full loadout to guarantee
-        // objective-closing capability. Chaos mode has no restrictions.
         var maxAttempts = (mode === 'chaos') ? 1 : 50;
+        var faction = currentFaction || 'any';
 
         for (var attempt = 0; attempt < maxAttempts; attempt++) {
+            var enabledPrimary = HD2Filters.getEnabledItems(HD2Data.primaryWeapons);
+            var enabledSecondary = HD2Filters.getEnabledItems(HD2Data.secondaryWeapons);
+            var enabledThrowables = HD2Filters.getEnabledItems(HD2Data.throwables);
+            var enabledArmor = HD2Filters.getEnabledItems(HD2Data.armorCombos);
+            var enabledBoosters = HD2Filters.getEnabledItems(HD2Data.boosters);
+
+            var isMR = mode === 'mission-ready';
             var result = {
-                primaryWeapon: pickRandom(HD2Filters.getEnabledItems(HD2Data.primaryWeapons)),
-                secondaryWeapon: pickRandom(HD2Filters.getEnabledItems(HD2Data.secondaryWeapons)),
-                throwable: pickRandom(HD2Filters.getEnabledItems(HD2Data.throwables)),
-                armor: pickRandom(HD2Filters.getEnabledItems(HD2Data.armorCombos)),
-                booster: pickRandom(HD2Filters.getEnabledItems(HD2Data.boosters)),
+                primaryWeapon: pickRandom(enabledPrimary),
+                secondaryWeapon: pickRandom(enabledSecondary),
+                throwable: pickRandom(enabledThrowables),
+                armor: (isMR && enabledArmor.length > 0)
+                    ? pickFactionArmor(enabledArmor, faction)
+                    : pickRandom(enabledArmor),
+                booster: (mode === 'mission-ready' && enabledBoosters.length > 0)
+                    ? pickFactionBooster(enabledBoosters, faction)
+                    : pickRandom(enabledBoosters),
                 stratagems: null,
                 error: null
             };
@@ -274,13 +488,19 @@ window.HD2Randomizer = (function () {
             if (mode === 'chaos') {
                 stratagemResult = randomizeChaos(enabledStratagems);
             } else if (mode === 'mission-ready') {
-                var weaponATScore = (result.primaryWeapon.atScore || 0) +
-                                    (result.secondaryWeapon.atScore || 0) +
-                                    (result.throwable.atScore || 0);
-                var weaponCCScore = (result.primaryWeapon.ccScore || 0) +
-                                    (result.secondaryWeapon.ccScore || 0) +
-                                    (result.throwable.ccScore || 0);
-                stratagemResult = randomizeMissionReady(enabledStratagems, weaponATScore, weaponCCScore);
+                // Calculate 3D weapon scores using faction overrides
+                var weaponScores = {
+                    cc: getScore(result.primaryWeapon, 'ccScore', faction) +
+                        getScore(result.secondaryWeapon, 'ccScore', faction) +
+                        getScore(result.throwable, 'ccScore', faction),
+                    elite: getScore(result.primaryWeapon, 'eliteScore', faction) +
+                           getScore(result.secondaryWeapon, 'eliteScore', faction) +
+                           getScore(result.throwable, 'eliteScore', faction),
+                    at: getScore(result.primaryWeapon, 'atScore', faction) +
+                        getScore(result.secondaryWeapon, 'atScore', faction) +
+                        getScore(result.throwable, 'atScore', faction)
+                };
+                stratagemResult = randomizeMissionReady(enabledStratagems, weaponScores, faction);
             } else {
                 stratagemResult = randomizeBalanced(enabledStratagems);
             }
@@ -291,15 +511,22 @@ window.HD2Randomizer = (function () {
 
             result.stratagems = stratagemResult.stratagems;
 
-            // For non-chaos modes, ensure the loadout can close objectives
+            // For mission-ready, check hard requirements (includes objective closing)
+            if (mode === 'mission-ready') {
+                if (meetsHardRequirements(result, faction)) {
+                    return result;
+                }
+                continue;
+            }
+
+            // For balanced, just check objective closing
             if (mode === 'chaos' || canCloseObjectives(result)) {
                 return result;
             }
             // Otherwise retry with a new roll
         }
 
-        // Fallback: return the last result even if it can't close objectives
-        // (only happens if filters are very restrictive)
+        // Fallback: return the last result even if it doesn't fully validate
         return result;
     }
 
@@ -308,6 +535,8 @@ window.HD2Randomizer = (function () {
      * slotType: 'primary', 'secondary', 'throwable', 'armor', 'booster', 'strat-0'..'strat-3'
      */
     function rerollSlot(slotType, currentResult, mode) {
+        var faction = currentFaction || 'any';
+
         var dataMap = {
             'primary': HD2Data.primaryWeapons,
             'secondary': HD2Data.secondaryWeapons,
@@ -331,9 +560,22 @@ window.HD2Randomizer = (function () {
             var filtered = pool.filter(function (item) {
                 return item.id !== currentItem.id;
             });
-            // Fall back to full pool if only 1 item enabled
-            var pick = pickRandom(filtered.length > 0 ? filtered : pool);
-            if (!pick) return { error: 'No items enabled for this slot.' };
+            var pickPool = filtered.length > 0 ? filtered : pool;
+            if (pickPool.length === 0) return { error: 'No items enabled for this slot.' };
+
+            var pick;
+            if (mode === 'mission-ready') {
+                if (slotType === 'armor') {
+                    pick = pickFactionArmor(pickPool, faction);
+                } else if (slotType === 'booster') {
+                    pick = pickFactionBooster(pickPool, faction);
+                } else {
+                    pick = pickRandom(pickPool);
+                }
+            } else {
+                pick = pickRandom(pickPool);
+            }
+
             return { item: pick, key: resultKeyMap[slotType] };
         }
 
@@ -354,17 +596,13 @@ window.HD2Randomizer = (function () {
             var candidates;
             if (mode === 'balanced' || mode === 'mission-ready') {
                 candidates = enabledStratagems.filter(function (s) {
-                    // No duplicates with the other 3
                     for (var j = 0; j < others.length; j++) {
                         if (others[j].id === s.id) return false;
                     }
-                    // Exclude current for variety
                     if (s.id === currentStrat.id) return false;
-                    // Check constraints against the other 3
                     return !wouldViolateConstraints(s, others);
                 });
             } else {
-                // Chaos: only avoid duplicates within the 4
                 candidates = enabledStratagems.filter(function (s) {
                     for (var j = 0; j < others.length; j++) {
                         if (others[j].id === s.id) return false;
@@ -387,10 +625,34 @@ window.HD2Randomizer = (function () {
 
             if (candidates.length === 0) return { error: 'No valid stratagems available for this slot.' };
 
-            // Mission Ready mode uses weighted pick favoring CC/utility
+            // Mission Ready mode uses synergy-aware weighted pick
             var pick;
             if (mode === 'mission-ready') {
-                pick = weightedPick(candidates, HD2Data.missionReadyConfig);
+                var config = HD2Data.factionConfig;
+                // Calculate current loadout scores from weapons + other 3 stratagems
+                var currentScores = {
+                    cc: getScore(currentResult.primaryWeapon, 'ccScore', faction) +
+                        getScore(currentResult.secondaryWeapon, 'ccScore', faction) +
+                        getScore(currentResult.throwable, 'ccScore', faction),
+                    elite: getScore(currentResult.primaryWeapon, 'eliteScore', faction) +
+                           getScore(currentResult.secondaryWeapon, 'eliteScore', faction) +
+                           getScore(currentResult.throwable, 'eliteScore', faction),
+                    at: getScore(currentResult.primaryWeapon, 'atScore', faction) +
+                        getScore(currentResult.secondaryWeapon, 'atScore', faction) +
+                        getScore(currentResult.throwable, 'atScore', faction)
+                };
+                for (var i = 0; i < others.length; i++) {
+                    currentScores.cc += getScore(others[i], 'ccScore', faction);
+                    currentScores.elite += getScore(others[i], 'eliteScore', faction);
+                    currentScores.at += getScore(others[i], 'atScore', faction);
+                }
+                var thresholds = config.thresholds[faction] || config.thresholds.any;
+                var deficits = {
+                    cc: thresholds.cc - currentScores.cc,
+                    elite: thresholds.elite - currentScores.elite,
+                    at: thresholds.at - currentScores.at
+                };
+                pick = synergyWeightedPick(candidates, deficits, faction, config);
             } else {
                 pick = pickRandom(candidates);
             }
@@ -410,6 +672,7 @@ window.HD2Randomizer = (function () {
         var loadouts = [];
         var retries = 0;
         var maxRetries = 50;
+        var faction = currentFaction || 'any';
 
         for (var p = 0; p < 4; p++) {
             // Boosters are unique across squad when possible
@@ -420,12 +683,20 @@ window.HD2Randomizer = (function () {
                 availableBoosters = HD2Filters.getEnabledItems(HD2Data.boosters);
             }
 
+            var enabledArmor = HD2Filters.getEnabledItems(HD2Data.armorCombos);
+
+            var sqMR = mode === 'mission-ready';
+
             var result = {
                 primaryWeapon: pickRandom(HD2Filters.getEnabledItems(HD2Data.primaryWeapons)),
                 secondaryWeapon: pickRandom(HD2Filters.getEnabledItems(HD2Data.secondaryWeapons)),
                 throwable: pickRandom(HD2Filters.getEnabledItems(HD2Data.throwables)),
-                armor: pickRandom(HD2Filters.getEnabledItems(HD2Data.armorCombos)),
-                booster: pickRandom(availableBoosters),
+                armor: (sqMR && enabledArmor.length > 0)
+                    ? pickFactionArmor(enabledArmor, faction)
+                    : pickRandom(enabledArmor),
+                booster: (mode === 'mission-ready' && availableBoosters.length > 0)
+                    ? pickFactionBooster(availableBoosters, faction)
+                    : pickRandom(availableBoosters),
                 stratagems: null,
                 error: null
             };
@@ -445,13 +716,18 @@ window.HD2Randomizer = (function () {
             if (mode === 'chaos') {
                 stratagemResult = randomizeChaos(enabledStratagems);
             } else if (mode === 'mission-ready') {
-                var weaponATScore = (result.primaryWeapon.atScore || 0) +
-                                    (result.secondaryWeapon.atScore || 0) +
-                                    (result.throwable.atScore || 0);
-                var weaponCCScore = (result.primaryWeapon.ccScore || 0) +
-                                    (result.secondaryWeapon.ccScore || 0) +
-                                    (result.throwable.ccScore || 0);
-                stratagemResult = randomizeMissionReady(enabledStratagems, weaponATScore, weaponCCScore);
+                var weaponScores = {
+                    cc: getScore(result.primaryWeapon, 'ccScore', faction) +
+                        getScore(result.secondaryWeapon, 'ccScore', faction) +
+                        getScore(result.throwable, 'ccScore', faction),
+                    elite: getScore(result.primaryWeapon, 'eliteScore', faction) +
+                           getScore(result.secondaryWeapon, 'eliteScore', faction) +
+                           getScore(result.throwable, 'eliteScore', faction),
+                    at: getScore(result.primaryWeapon, 'atScore', faction) +
+                        getScore(result.secondaryWeapon, 'atScore', faction) +
+                        getScore(result.throwable, 'atScore', faction)
+                };
+                stratagemResult = randomizeMissionReady(enabledStratagems, weaponScores, faction);
             } else {
                 stratagemResult = randomizeBalanced(enabledStratagems);
             }
@@ -462,10 +738,16 @@ window.HD2Randomizer = (function () {
 
             result.stratagems = stratagemResult.stratagems;
 
-            // For non-chaos modes, ensure each player can close objectives
-            if (mode !== 'chaos' && !canCloseObjectives(result) && retries < maxRetries) {
+            // For mission-ready, check hard requirements
+            if (mode === 'mission-ready') {
+                if (!meetsHardRequirements(result, faction) && retries < maxRetries) {
+                    retries++;
+                    p--;
+                    continue;
+                }
+            } else if (mode !== 'chaos' && !canCloseObjectives(result) && retries < maxRetries) {
                 retries++;
-                p--; // will be incremented by the for loop, netting to same player
+                p--;
                 continue;
             }
 
@@ -481,9 +763,25 @@ window.HD2Randomizer = (function () {
         return { loadouts: loadouts };
     }
 
+    /**
+     * Set the current faction for Mission Ready mode.
+     */
+    function setFaction(faction) {
+        currentFaction = faction || 'any';
+    }
+
+    /**
+     * Get the current faction.
+     */
+    function getFaction() {
+        return currentFaction;
+    }
+
     return {
         randomize: randomize,
         rerollSlot: rerollSlot,
-        randomizeSquad: randomizeSquad
+        randomizeSquad: randomizeSquad,
+        setFaction: setFaction,
+        getFaction: getFaction
     };
 })();

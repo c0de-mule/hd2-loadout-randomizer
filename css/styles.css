@@ -76,6 +76,56 @@ button {
     margin-bottom: var(--space-xl);
 }
 
+/* === FACTION SELECTOR === */
+.faction-selector {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-xs);
+    margin-top: calc(-1 * var(--space-md));
+    margin-bottom: var(--space-xl);
+}
+
+.faction-selector--hidden {
+    display: none;
+}
+
+.faction-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: var(--space-xs) var(--space-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all var(--transition-fast);
+    background: transparent;
+    color: var(--color-text-muted);
+}
+
+.faction-btn__icon {
+    filter: brightness(0.7);
+    transition: filter var(--transition-fast);
+}
+
+.faction-btn:hover .faction-btn__icon,
+.faction-btn.active .faction-btn__icon {
+    filter: brightness(1);
+}
+
+.faction-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.faction-btn.active {
+    background: var(--color-primary);
+    color: var(--color-bg);
+    border-color: var(--color-primary);
+}
+
 .mode-btn {
     padding: var(--space-sm) var(--space-lg);
     border: 2px solid var(--color-border);
@@ -1392,6 +1442,11 @@ button {
     }
 
     .mode-selector {
+        flex-wrap: wrap;
+        padding: 0 var(--space-sm);
+    }
+
+    .faction-selector {
         flex-wrap: wrap;
         padding: 0 var(--space-sm);
     }
